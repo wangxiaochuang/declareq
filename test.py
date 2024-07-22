@@ -1,8 +1,8 @@
 '''uplink'''
-from drequests.arguments import BodyKw, HeaderAuthToken, Path, Query, UrlPrefix, QueryAuthToken
-from drequests.builder import Consumer
-from drequests.commands import NeedRetry, post
-from drequests.annotations import headers, returns, retry
+from declareq.arguments import BodyKw, HeaderAuthToken, Path, Query, UrlPrefix, QueryAuthToken
+from declareq.builder import Consumer
+from declareq.commands import NeedRetry, post
+from declareq.annotations import headers, returns, retry
 
 
 def print_status(response):
@@ -16,22 +16,24 @@ def handle_error(exc_type, _exc_val, _exc_tb):
     print(
         f'Error encountered. Exception will be raised. Exception Type:{exc_type}')
 
+
 def mytest(google, input):
     return input
+
 
 class Result():
     def __init__(self, raw):
         self.raw = raw
-    
+
     def __repr__(self):
         return f'Result:{self.raw}'
+
 
 class BGoogle(Consumer):
     @headers({"User-Agent": "test-Sample-App"})
     @returns.get_in(["data"])
     def __init__(self, _: UrlPrefix, access_token: HeaderAuthToken("X-Api-Token", call="get")):
         pass
-        
 
     '''google'''
     @post("/ws/{id}")
@@ -41,6 +43,7 @@ class BGoogle(Consumer):
     def homepage(self, _id: Path, _: Query("kw"), **_info: BodyKw):
         '''homepage'''
         print('google home page')
+
 
 class Google(BGoogle):
     @returns(mytest)

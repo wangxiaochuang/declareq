@@ -9,9 +9,9 @@ declare network request
 just like uplink did, use Github API v3 for example:
 
 ```python
-from drequests.arguments import Path, Query, UrlPrefix
-from drequests.builder import Consumer
-from drequests.commands import get
+from declareq.arguments import Path, Query, UrlPrefix
+from declareq.builder import Consumer
+from declareq.commands import get
 
 
 class Github(Consumer):
