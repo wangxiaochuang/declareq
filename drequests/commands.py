@@ -3,12 +3,18 @@ import inspect
 from typing import Any
 import requests
 import uritemplate
+from retrying import retry
 
 from drequests import utils, interfaces
 
+class NeedRetry(Exception):
+    pass
+
+def retry_if_need(e):
+    return isinstance(e, NeedRetry)
 
 class Request():
-    def __init__(self, method, url, headers, query, body, ret_funcs):
+    def __init__(self, method, url, headers, query, body, ret_funcs, retry_kwargs, timeout):
         self.method = method
         self.url = url
         self.query = query
@@ -16,17 +22,27 @@ class Request():
         self.body = body
         self.headers = headers
         self.ret_funcs = ret_funcs
+        self.retry_kwargs = retry_kwargs
+        self.timeout = timeout
 
     def execute(self, consumer):
-        query = {k: v(consumer) if callable(
-            v) else v for k, v in self.query.items()}
-        headers = {k: v(consumer) if callable(
-            v) else v for k, v in self.headers.items()}
-        resp = self.session.request(self.method, self.url, params=query, headers=headers, json=self.body, proxies={"http": None, "https": None})
-        res = resp.json()
-        for func in self.ret_funcs:
-            res = func(consumer, res)
-        return res
+        def run():
+            query = {k: v(consumer) if callable(
+                v) else v for k, v in self.query.items()}
+            headers = {k: v(consumer) if callable(
+                v) else v for k, v in self.headers.items()}
+            try:
+                resp = self.session.request(self.method, self.url, params=query, headers=headers, json=self.body, proxies={"http": None, "https": None}, timeout=self.timeout / 1000)
+            except requests.exceptions.Timeout as e:
+                return NeedRetry("timeout")
+            res = resp.json()
+            for func in self.ret_funcs:
+                res = func(consumer, res)
+            return res
+
+        run = retry(**self.retry_kwargs)(run)
+        
+        return run()
 
 
 class Empty():
@@ -42,6 +58,7 @@ empty_path = Empty()
 empty_spec = Empty()
 empty_url_prefix = Empty()
 empty_url = Empty()
+empty_timeout = Empty()
 
 
 def is_empty(obj):
@@ -64,6 +81,12 @@ class RequestDefinitionBuilder(interfaces.RequestDefinitionBuilder):
         self._headers_auth = {}
         self._params = {}
         self._returns = []
+        self._retry = {
+                "retry_on_exception": retry_if_need,
+                "stop_max_attempt_number": 2,
+                "wait_random_min": 1000,
+                "wait_random_max": 3000}
+        self._timeout = empty_timeout
 
     @property
     def spec(self):
@@ -105,6 +128,13 @@ class RequestDefinitionBuilder(interfaces.RequestDefinitionBuilder):
             raise ValueError("path already set")
         self._path = uritemplate.URITemplate(path)
 
+    def set_timeout(self, timeout):
+        if not timeout:
+            raise ValueError("timeout cannot be empty")
+        if self._timeout is not empty_timeout:
+            raise ValueError("timeout already set")
+        self._timeout = timeout
+
     def add_path_var(self, key, val):
         self._path_vars[key] = val
 
@@ -125,6 +155,9 @@ class RequestDefinitionBuilder(interfaces.RequestDefinitionBuilder):
     
     def add_return(self, func):
         self._returns.append(func)
+
+    def add_retry(self, kwargs):
+        self._retry.update(kwargs)
 
     @property
     def url(self):
@@ -167,17 +200,29 @@ class RequestDefinitionBuilder(interfaces.RequestDefinitionBuilder):
         query_auth = {**global_builder._query_auth, **self._query_auth}
         return {**global_builder._query, **self._query, **query_auth}
 
-    def _merge_return(self, global_builder):
+    def _merge_return(self, init_builder):
         ret_func = lambda _, raw: raw
         if inspect.isclass(self.spec.return_annotation):
             ret_func = lambda _, raw: self.spec.return_annotation(raw)
-        return [*global_builder._returns, *self._returns, ret_func]
-    def build(self, global_builder) -> Request:
-        url = self._merge_url(global_builder)
-        headers = self._merge_headers(global_builder)
-        query = self._merge_query(global_builder)
-        ret_funcs = self._merge_return(global_builder)
-        return Request(self.method, url, headers, query, self.body, ret_funcs)
+        return [*init_builder._returns, *self._returns, ret_func]
+
+    def _merge_retry(self, init_builder):
+        return {**init_builder._retry, **self._retry}
+
+    def _merge_timeout(self, init_builder):
+        if not is_empty(self._timeout):
+            return self._timeout
+        if not is_empty(init_builder._timeout):
+            return init_builder._timeout
+        return 5000
+    def build(self, init_builder) -> Request:
+        url = self._merge_url(init_builder)
+        headers = self._merge_headers(init_builder)
+        query = self._merge_query(init_builder)
+        ret_funcs = self._merge_return(init_builder)
+        retry_kwargs = self._merge_retry(init_builder)
+        timeout = self._merge_timeout(init_builder)
+        return Request(self.method, url, headers, query, self.body, ret_funcs, retry_kwargs, timeout)
 
     def __repr__(self):
         return f"builder({self.method})"

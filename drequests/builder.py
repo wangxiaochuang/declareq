@@ -35,7 +35,7 @@ class ConsumerMeta(type):
 
         def wrap(consumer, *args, **kwargs):
             ConsumerMethod(builder).fill_args(consumer, *args, **kwargs)
-            # builder._func()
+            # builder._func(consumer, *args, **kwargs)
         return wrap, builder
 
     @staticmethod
@@ -50,15 +50,17 @@ class ConsumerMeta(type):
         return wrapped_value
 
     def __new__(cls, name, bases, namespace):
-        session = RequestDefinitionBuilder(noops)
+        session = None
         for key, value in namespace.items():
             if key == "__init__":
                 namespace["__init__"], session = cls._wrap_init(
                     name, key, value)
                 continue
             namespace[key] = cls._wrap_if_definition(name, key, value)
-        namespace["_session"] = session
-        return super(ConsumerMeta, cls).__new__(cls, name, bases, namespace)
+        if session:
+            namespace["_session"] = session
+        obj = super(ConsumerMeta, cls).__new__(cls, name, bases, namespace)
+        return obj
 
 
 _Consumer = ConsumerMeta("_Consumer", (), {})

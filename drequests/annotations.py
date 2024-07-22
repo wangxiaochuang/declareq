@@ -30,24 +30,65 @@ class Headers(object):
 headers = HeadersFactory().__call__
 
 class ReturnsFactory(object):
-    def __call__(self, keys: List = []):
+    def get_in(self, keys: List = []):
+        def func(_, raw):
+            return toolz.get_in(keys, raw)
         return functools.partial(
-            Returns(keys),
+            ReturnsFunc(func),
+        )
+    
+    def __call__(self, func):
+        return functools.partial(
+            ReturnsFunc(func),
         )
 
 
-class Returns(object):
-    def __init__(self, keys):
-        self._keys = keys
+class ReturnsFunc(object):
+    def __init__(self, func):
+        self._func = func
 
     def __call__(self, builder):
         if not isinstance(builder, interfaces.RequestDefinitionBuilder):
             builder = RequestDefinitionBuilder(builder)
-
-        def f(_, raw):
-            return toolz.get_in(self._keys, raw)
-        builder.add_return(f)
-
+        builder.add_return(self._func)
         return builder
     
-returns = ReturnsFactory().__call__
+returns = ReturnsFactory()
+
+class RetryFactory(object):
+    def __call__(self, **kwargs):
+        return functools.partial(
+            Retry(kwargs),
+        )
+
+
+class Retry(object):
+    def __init__(self, kwargs):
+        self._kwargs = kwargs
+
+    def __call__(self, builder):
+        if not isinstance(builder, interfaces.RequestDefinitionBuilder):
+            builder = RequestDefinitionBuilder(builder)
+        builder.add_retry(self._kwargs)
+        return builder
+    
+retry = RetryFactory()
+
+class TimeoutFactory(object):
+    def __call__(self, timeout):
+        return functools.partial(
+            Timeout(timeout),
+        )
+
+
+class Timeout(object):
+    def __init__(self, timeout):
+        self._timeout = timeout
+
+    def __call__(self, builder):
+        if not isinstance(builder, interfaces.RequestDefinitionBuilder):
+            builder = RequestDefinitionBuilder(builder)
+        builder.set_timeout(self._timeout)
+        return builder
+    
+timeout = TimeoutFactory()
