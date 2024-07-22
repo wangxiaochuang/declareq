@@ -31,6 +31,7 @@ class BGoogle(Consumer):
     @returns.get_in(["data"])
     def __init__(self, _: UrlPrefix, access_token: HeaderAuthToken("X-Api-Token", call="get")):
         pass
+        
 
     '''google'''
     @post("/ws/{id}")
@@ -42,7 +43,9 @@ class BGoogle(Consumer):
         print('google home page')
 
 class Google(BGoogle):
-    pass
+    def __init__(self, appid: str):
+        self.appid = appid
+        super().__init__("http://127.0.0.1:5000", MyToken())
 
 
 class MyToken():
@@ -51,6 +54,6 @@ class MyToken():
         return "xxxxx"
 
 
-google = Google("http://127.0.0.1:5000", MyToken())
+google = BGoogle("http://127.0.0.1:5000", MyToken())
 res = google.homepage(123, "jack", a=1, b=2)
 print(res)

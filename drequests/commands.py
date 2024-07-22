@@ -70,22 +70,32 @@ class Builder(interfaces.Builder):
         self._spec = utils.get_arg_spec(func)
         self._func = func
         self._method = empty_method
+        # init can be set
         self._url_prefix = empty_url_prefix
         self._path = empty_path
+        # init can be set
         self._url = empty_url
+        # init can be set
         self._path_vars = {}
+        # init can be set
         self._body = {}
+        # init can be set
         self._query = {}
+        # init can be set
         self._query_auth = {}
+        # init can be set
         self._headers = {}
+        # init can be set
         self._headers_auth = {}
-        self._params = {}
+        # init can be set
         self._returns = []
+        # init can be set
         self._retry = {
                 "retry_on_exception": retry_if_need,
                 "stop_max_attempt_number": 2,
                 "wait_random_min": 1000,
                 "wait_random_max": 3000}
+        # init can be set
         self._timeout = empty_timeout
 
     @property
@@ -224,9 +234,27 @@ class Builder(interfaces.Builder):
         timeout = self._merge_timeout(init_builder)
         return Request(self.method, url, headers, query, self.body, ret_funcs, retry_kwargs, timeout)
 
+    def merge_parent(self, builder) -> interfaces.Builder:
+        # 自己没有才是用父类存在的 
+        if is_empty(self._url_prefix) and (not is_empty(builder._url_prefix)):
+            self._url_prefix = builder._url_prefix
+        if is_empty(self._url) and (not is_empty(builder._url)):
+            self._url = builder._url
+        if is_empty(self._timeout) and (not is_empty(builder._timeout)):
+            self._timeout = builder._timeout
+        # 父类的优先
+        self._returns = {*builder._returns, *self._returns}
+        # 子类的优先
+        self._path_vars = {**builder._path_vars, **self._path_vars}
+        self._body = {**builder._body, **self._body}
+        self._query = {**builder._query, **self._query}
+        self._query_auth = {**builder._query_auth, **self._query_auth}
+        self._headers = {**builder._headers, **self._headers}
+        self._retry = {**builder._retry, **self._retry}
+        return self
     def __repr__(self):
-        return f"builder({self.method})"
-
+        return f"builder({self.url_prefix})"
+    
 
 class HttpMethodFactory(object):
     def __init__(self, method):

@@ -35,7 +35,11 @@ class ConsumerMeta(type):
 
         def wrap(consumer, *args, **kwargs):
             ConsumerMethod(builder).fill_args(consumer, *args, **kwargs)
-            # builder._func(consumer, *args, **kwargs)
+            builder._func(consumer, *args, **kwargs)
+            cls = type(consumer).__bases__[0]
+            if session := getattr(cls, "_session", None):
+                builder.merge_parent(session)
+
         return wrap, builder
 
     @staticmethod
@@ -58,6 +62,8 @@ class ConsumerMeta(type):
                 continue
             namespace[key] = cls._wrap_if_definition(name, key, value)
         if session:
+            if len(bases) > 0 and (parent := bases[0]) and (builder := getattr(parent, "_session", None)):
+                session.merge_parent(builder)
             namespace["_session"] = session
         obj = super(ConsumerMeta, cls).__new__(cls, name, bases, namespace)
         return obj
