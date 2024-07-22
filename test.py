@@ -1,8 +1,8 @@
 '''uplink'''
-from drequests.arguments import BodyKw, Path, Query, UrlPrefix, QueryAuthToken
+from drequests.arguments import BodyKw, HeaderAuthToken, Path, Query, UrlPrefix, QueryAuthToken
 from drequests.builder import Consumer
 from drequests.commands import post
-from drequests.annotations import headers
+from drequests.annotations import headers, returns
 
 
 def print_status(response):
@@ -17,15 +17,24 @@ def handle_error(exc_type, _exc_val, _exc_tb):
         f'Error encountered. Exception will be raised. Exception Type:{exc_type}')
 
 
+class Result():
+    def __init__(self, raw):
+        self.raw = raw
+    
+    def __repr__(self):
+        return f'Result:{self.raw}'
+
 class Google(Consumer):
     @headers({"User-Agent": "test-Sample-App"})
-    def __init__(self, _: UrlPrefix, access_token: QueryAuthToken("token", call="get")):
+    @returns.get_in(["data"])
+    def __init__(self, _: UrlPrefix, access_token: HeaderAuthToken("X-Api-Token", call="get")):
         pass
 
     '''google'''
-    @post(path="/ws/{id}")
+    @post("/ws/{id}")
     @headers({"User-Agent": "drequests-Sample-App"})
-    def homepage(self, _id: Path, _: Query("kw"), **info: BodyKw) -> str:
+    @returns.get_in(["name"])
+    def homepage(self, _id: Path, _: Query("kw"), **_info: BodyKw) -> Result:
         '''homepage'''
         print('google home page')
 

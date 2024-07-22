@@ -1,4 +1,5 @@
 import functools
+import inspect
 from typing import Any
 import requests
 import uritemplate
@@ -7,20 +8,25 @@ from drequests import utils, interfaces
 
 
 class Request():
-    def __init__(self, method, url, headers, query, body):
+    def __init__(self, method, url, headers, query, body, ret_funcs):
         self.method = method
         self.url = url
         self.query = query
         self.session = requests.Session()
         self.body = body
         self.headers = headers
+        self.ret_funcs = ret_funcs
 
     def execute(self, consumer):
         query = {k: v(consumer) if callable(
             v) else v for k, v in self.query.items()}
         headers = {k: v(consumer) if callable(
             v) else v for k, v in self.headers.items()}
-        return self.session.request(self.method, self.url, params=query, headers=headers, json=self.body, proxies={"http": None, "https": None})
+        resp = self.session.request(self.method, self.url, params=query, headers=headers, json=self.body, proxies={"http": None, "https": None})
+        res = resp.json()
+        for func in self.ret_funcs:
+            res = func(consumer, res)
+        return res
 
 
 class Empty():
@@ -57,6 +63,7 @@ class RequestDefinitionBuilder(interfaces.RequestDefinitionBuilder):
         self._headers = {}
         self._headers_auth = {}
         self._params = {}
+        self._returns = []
 
     @property
     def spec(self):
@@ -115,6 +122,9 @@ class RequestDefinitionBuilder(interfaces.RequestDefinitionBuilder):
 
     def add_header_auth(self, key, val):
         self._headers_auth[key] = val
+    
+    def add_return(self, func):
+        self._returns.append(func)
 
     @property
     def url(self):
@@ -157,11 +167,17 @@ class RequestDefinitionBuilder(interfaces.RequestDefinitionBuilder):
         query_auth = {**global_builder._query_auth, **self._query_auth}
         return {**global_builder._query, **self._query, **query_auth}
 
+    def _merge_return(self, global_builder):
+        ret_func = lambda _, raw: raw
+        if inspect.isclass(self.spec.return_annotation):
+            ret_func = lambda _, raw: self.spec.return_annotation(raw)
+        return [*global_builder._returns, *self._returns, ret_func]
     def build(self, global_builder) -> Request:
         url = self._merge_url(global_builder)
         headers = self._merge_headers(global_builder)
         query = self._merge_query(global_builder)
-        return Request(self.method, url, headers, query, self.body)
+        ret_funcs = self._merge_return(global_builder)
+        return Request(self.method, url, headers, query, self.body, ret_funcs)
 
     def __repr__(self):
         return f"builder({self.method})"

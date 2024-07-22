@@ -2,4 +2,4 @@ all:
 	python test.py
 
 server:
-	flask --app server run
+	flask --app debug run

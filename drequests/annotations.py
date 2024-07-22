@@ -1,8 +1,9 @@
 import functools
-from typing import Dict
+from typing import Dict, List
 
 from drequests import interfaces
 from drequests.commands import RequestDefinitionBuilder
+import toolz
 
 
 class HeadersFactory(object):
@@ -27,3 +28,26 @@ class Headers(object):
 
 
 headers = HeadersFactory().__call__
+
+class ReturnsFactory(object):
+    def __call__(self, keys: List = []):
+        return functools.partial(
+            Returns(keys),
+        )
+
+
+class Returns(object):
+    def __init__(self, keys):
+        self._keys = keys
+
+    def __call__(self, builder):
+        if not isinstance(builder, interfaces.RequestDefinitionBuilder):
+            builder = RequestDefinitionBuilder(builder)
+
+        def f(_, raw):
+            return toolz.get_in(self._keys, raw)
+        builder.add_return(f)
+
+        return builder
+    
+returns = ReturnsFactory().__call__
