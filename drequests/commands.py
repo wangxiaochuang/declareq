@@ -65,7 +65,7 @@ def is_empty(obj):
     return isinstance(obj, Empty)
 
 
-class RequestDefinitionBuilder(interfaces.RequestDefinitionBuilder):
+class Builder(interfaces.Builder):
     def __init__(self, func):
         self._spec = utils.get_arg_spec(func)
         self._func = func
@@ -244,8 +244,8 @@ class HttpMethod(object):
         self._path = path
 
     def __call__(self, builder):
-        if not isinstance(builder, interfaces.RequestDefinitionBuilder):
-            builder = RequestDefinitionBuilder(builder)
+        if not isinstance(builder, interfaces.Builder):
+            builder = Builder(builder)
 
         builder.path = self._path
         builder.method = self._method

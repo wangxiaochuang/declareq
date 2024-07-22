@@ -2,7 +2,7 @@ class Consumer(object):
     pass
 
 
-class RequestDefinitionBuilder(object):
+class Builder(object):
     @property
     def method(self):
         raise NotImplementedError
@@ -35,5 +35,5 @@ class Argument(object):
             return key[1:]
         return key
 
-    def build(self, consumer, builder: RequestDefinitionBuilder, arg_key, arg_val):
+    def build(self, consumer, builder: Builder, arg_key, arg_val):
         pass

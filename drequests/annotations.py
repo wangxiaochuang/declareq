@@ -2,7 +2,7 @@ import functools
 from typing import Dict, List
 
 from drequests import interfaces
-from drequests.commands import RequestDefinitionBuilder
+from drequests.commands import Builder
 import toolz
 
 
@@ -18,8 +18,8 @@ class Headers(object):
         self._body = body
 
     def __call__(self, builder):
-        if not isinstance(builder, interfaces.RequestDefinitionBuilder):
-            builder = RequestDefinitionBuilder(builder)
+        if not isinstance(builder, interfaces.Builder):
+            builder = Builder(builder)
 
         for (key, val) in self._body.items():
             builder.add_header(key, val)
@@ -48,8 +48,8 @@ class ReturnsFunc(object):
         self._func = func
 
     def __call__(self, builder):
-        if not isinstance(builder, interfaces.RequestDefinitionBuilder):
-            builder = RequestDefinitionBuilder(builder)
+        if not isinstance(builder, interfaces.Builder):
+            builder = Builder(builder)
         builder.add_return(self._func)
         return builder
     
@@ -67,8 +67,8 @@ class Retry(object):
         self._kwargs = kwargs
 
     def __call__(self, builder):
-        if not isinstance(builder, interfaces.RequestDefinitionBuilder):
-            builder = RequestDefinitionBuilder(builder)
+        if not isinstance(builder, interfaces.Builder):
+            builder = Builder(builder)
         builder.add_retry(self._kwargs)
         return builder
     
@@ -86,8 +86,8 @@ class Timeout(object):
         self._timeout = timeout
 
     def __call__(self, builder):
-        if not isinstance(builder, interfaces.RequestDefinitionBuilder):
-            builder = RequestDefinitionBuilder(builder)
+        if not isinstance(builder, interfaces.Builder):
+            builder = Builder(builder)
         builder.set_timeout(self._timeout)
         return builder
     

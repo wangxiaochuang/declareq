@@ -1,6 +1,6 @@
 import inspect
 from drequests import interfaces, utils
-from drequests.commands import RequestDefinitionBuilder
+from drequests.commands import Builder
 
 
 def noops(*arg, **kwargs):
@@ -8,7 +8,7 @@ def noops(*arg, **kwargs):
 
 
 class ConsumerMethod():
-    def __init__(self, builder: RequestDefinitionBuilder):
+    def __init__(self, builder: Builder):
         self.builder = builder
 
     def fill_args(self, consumer, *args, **kwargs):
@@ -30,8 +30,8 @@ class ConsumerMethod():
 class ConsumerMeta(type):
     @staticmethod
     def _wrap_init(cls_name, key, builder):
-        if not isinstance(builder, interfaces.RequestDefinitionBuilder):
-            builder = RequestDefinitionBuilder(builder)
+        if not isinstance(builder, interfaces.Builder):
+            builder = Builder(builder)
 
         def wrap(consumer, *args, **kwargs):
             ConsumerMethod(builder).fill_args(consumer, *args, **kwargs)
@@ -41,7 +41,7 @@ class ConsumerMeta(type):
     @staticmethod
     def _wrap_if_definition(cls_name, key, value):
         wrapped_value = value
-        if isinstance(value, interfaces.RequestDefinitionBuilder):
+        if isinstance(value, interfaces.Builder):
             builder = value
 
             def wrap(consumer, *args, **kwargs):
