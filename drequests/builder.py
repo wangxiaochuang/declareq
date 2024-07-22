@@ -23,7 +23,7 @@ class ConsumerMethod():
     def __call__(self, consumer, *args, **kwargs):
         # for real biz func
         self.fill_args(consumer, *args, **kwargs)
-        request = self.builder.build(consumer._session)
+        request = self.builder.build(consumer._S_session)
         return request.execute(consumer)
 
 
@@ -37,7 +37,8 @@ class ConsumerMeta(type):
             ConsumerMethod(builder).fill_args(consumer, *args, **kwargs)
             builder._func(consumer, *args, **kwargs)
             cls = type(consumer).__bases__[0]
-            if session := getattr(cls, "_session", None):
+            # 合并父类初始化方法的各个设置
+            if session := getattr(cls, "_S_session", None):
                 builder.merge_parent(session)
 
         return wrap, builder
@@ -61,10 +62,11 @@ class ConsumerMeta(type):
                     name, key, value)
                 continue
             namespace[key] = cls._wrap_if_definition(name, key, value)
+        # 如果有初始化方法，就会有类属性session，就需要合并其父类的类属性session
         if session:
-            if len(bases) > 0 and (parent := bases[0]) and (builder := getattr(parent, "_session", None)):
+            if len(bases) > 0 and (parent := bases[0]) and (builder := getattr(parent, "_S_session", None)):
                 session.merge_parent(builder)
-            namespace["_session"] = session
+            namespace["_S_session"] = session
         obj = super(ConsumerMeta, cls).__new__(cls, name, bases, namespace)
         return obj
 

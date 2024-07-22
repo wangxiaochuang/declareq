@@ -17,7 +17,7 @@ def handle_error(exc_type, _exc_val, _exc_tb):
         f'Error encountered. Exception will be raised. Exception Type:{exc_type}')
 
 def mytest(google, input):
-    raise NeedRetry("retry")
+    return input
 
 class Result():
     def __init__(self, raw):
@@ -43,6 +43,7 @@ class BGoogle(Consumer):
         print('google home page')
 
 class Google(BGoogle):
+    @returns(mytest)
     def __init__(self, appid: str):
         self.appid = appid
         super().__init__("http://127.0.0.1:5000", MyToken())
@@ -54,6 +55,6 @@ class MyToken():
         return "xxxxx"
 
 
-google = BGoogle("http://127.0.0.1:5000", MyToken())
+google = Google("APP0989234")
 res = google.homepage(123, "jack", a=1, b=2)
 print(res)
