@@ -1,8 +1,8 @@
 import functools
 from typing import Dict, List
 
-from drequests import interfaces
-from drequests.commands import Builder
+from declareq import interfaces
+from declareq.commands import Builder
 import toolz
 
 
@@ -29,6 +29,7 @@ class Headers(object):
 
 headers = HeadersFactory().__call__
 
+
 class ReturnsFactory(object):
     def get_in(self, keys: List = []):
         def func(_, raw):
@@ -36,7 +37,7 @@ class ReturnsFactory(object):
         return functools.partial(
             ReturnsFunc(func),
         )
-    
+
     def __call__(self, func):
         return functools.partial(
             ReturnsFunc(func),
@@ -52,8 +53,10 @@ class ReturnsFunc(object):
             builder = Builder(builder)
         builder.add_return(self._func)
         return builder
-    
+
+
 returns = ReturnsFactory()
+
 
 class RetryFactory(object):
     def __call__(self, **kwargs):
@@ -71,8 +74,10 @@ class Retry(object):
             builder = Builder(builder)
         builder.add_retry(self._kwargs)
         return builder
-    
+
+
 retry = RetryFactory()
+
 
 class TimeoutFactory(object):
     def __call__(self, timeout):
@@ -90,5 +95,6 @@ class Timeout(object):
             builder = Builder(builder)
         builder.set_timeout(self._timeout)
         return builder
-    
+
+
 timeout = TimeoutFactory()

@@ -5,13 +5,16 @@ import requests
 import uritemplate
 from retrying import retry
 
-from drequests import utils, interfaces
+from declareq import utils, interfaces
+
 
 class NeedRetry(Exception):
     pass
 
+
 def retry_if_need(e):
     return isinstance(e, NeedRetry)
+
 
 class Request():
     def __init__(self, method, url, headers, query, body, ret_funcs, retry_kwargs, timeout):
@@ -32,7 +35,8 @@ class Request():
             headers = {k: v(consumer) if callable(
                 v) else v for k, v in self.headers.items()}
             try:
-                resp = self.session.request(self.method, self.url, params=query, headers=headers, json=self.body, proxies={"http": None, "https": None}, timeout=self.timeout / 1000)
+                resp = self.session.request(self.method, self.url, params=query, headers=headers, json=self.body, proxies={
+                                            "http": None, "https": None}, timeout=self.timeout / 1000)
             except requests.exceptions.Timeout as e:
                 return NeedRetry("timeout")
             res = resp.json()
@@ -41,7 +45,7 @@ class Request():
             return res
 
         run = retry(**self.retry_kwargs)(run)
-        
+
         return run()
 
 
@@ -91,10 +95,10 @@ class Builder(interfaces.Builder):
         self._returns = []
         # init can be set
         self._retry = {
-                "retry_on_exception": retry_if_need,
-                "stop_max_attempt_number": 2,
-                "wait_random_min": 1000,
-                "wait_random_max": 3000}
+            "retry_on_exception": retry_if_need,
+            "stop_max_attempt_number": 2,
+            "wait_random_min": 1000,
+            "wait_random_max": 3000}
         # init can be set
         self._timeout = empty_timeout
 
@@ -162,7 +166,7 @@ class Builder(interfaces.Builder):
 
     def add_header_auth(self, key, val):
         self._headers_auth[key] = val
-    
+
     def add_return(self, func):
         self._returns.append(func)
 
@@ -211,9 +215,9 @@ class Builder(interfaces.Builder):
         return {**global_builder._query, **self._query, **query_auth}
 
     def _merge_return(self, init_builder):
-        ret_func = lambda _, raw: raw
+        def ret_func(_, raw): return raw
         if inspect.isclass(self.spec.return_annotation):
-            ret_func = lambda _, raw: self.spec.return_annotation(raw)
+            def ret_func(_, raw): return self.spec.return_annotation(raw)
         return [*init_builder._returns, *self._returns, ret_func]
 
     def _merge_retry(self, init_builder):
@@ -225,6 +229,7 @@ class Builder(interfaces.Builder):
         if not is_empty(init_builder._timeout):
             return init_builder._timeout
         return 5000
+
     def build(self, init_builder) -> Request:
         url = self._merge_url(init_builder)
         headers = self._merge_headers(init_builder)
@@ -235,7 +240,7 @@ class Builder(interfaces.Builder):
         return Request(self.method, url, headers, query, self.body, ret_funcs, retry_kwargs, timeout)
 
     def merge_parent(self, builder) -> interfaces.Builder:
-        # 自己没有才是用父类存在的 
+        # 自己没有才是用父类存在的
         if is_empty(self._url_prefix) and (not is_empty(builder._url_prefix)):
             self._url_prefix = builder._url_prefix
         if is_empty(self._url) and (not is_empty(builder._url)):
@@ -252,9 +257,10 @@ class Builder(interfaces.Builder):
         self._headers = {**builder._headers, **self._headers}
         self._retry = {**builder._retry, **self._retry}
         return self
+
     def __repr__(self):
         return f"builder({self.url_prefix})"
-    
+
 
 class HttpMethodFactory(object):
     def __init__(self, method):

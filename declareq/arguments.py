@@ -1,6 +1,6 @@
 from operator import methodcaller
-from drequests import interfaces
-from drequests.commands import Builder
+from declareq import interfaces
+from declareq.commands import Builder
 
 
 class Header(interfaces.Argument):

@@ -1,6 +1,6 @@
 import inspect
-from drequests import interfaces, utils
-from drequests.commands import Builder
+from declareq import interfaces, utils
+from declareq.commands import Builder
 
 
 def noops(*arg, **kwargs):
