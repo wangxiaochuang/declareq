@@ -5,6 +5,8 @@ from declareq import interfaces
 from declareq.commands import Builder
 import toolz
 
+from declareq.exceptions import ExtractFail
+
 
 class HeadersFactory(object):
     def __call__(self, body: Dict):
@@ -31,9 +33,18 @@ headers = HeadersFactory().__call__
 
 
 class ReturnsFactory(object):
-    def get_in(self, keys: List = []):
+    def get_in(self, keys: str | List = [], default=None, raise_exception=True):
+        if isinstance(keys, str):
+            keys = [keys]
+        assert len(keys) > 0
+
         def func(_, raw):
-            return toolz.get_in(keys, raw)
+            try:
+                return toolz.get_in(keys, raw, no_default=True)
+            except KeyError as e:
+                if raise_exception:
+                    raise ExtractFail(f"extract {keys} fail") from e
+                return default
         return functools.partial(
             ReturnsFunc(func),
         )
@@ -80,15 +91,15 @@ retry = RetryFactory()
 
 
 class TimeoutFactory(object):
-    def __call__(self, timeout):
+    def __call__(self, _timeout):
         return functools.partial(
-            Timeout(timeout),
+            Timeout(_timeout),
         )
 
 
 class Timeout(object):
-    def __init__(self, timeout):
-        self._timeout = timeout
+    def __init__(self, _timeout):
+        self._timeout = _timeout
 
     def __call__(self, builder):
         if not isinstance(builder, interfaces.Builder):
@@ -98,3 +109,54 @@ class Timeout(object):
 
 
 timeout = TimeoutFactory()
+
+
+class ProxiesFactory(object):
+    def __call__(self, _proxies):
+        return functools.partial(
+            Proxies(_proxies),
+        )
+
+
+class Proxies(object):
+    def __init__(self, _proxies):
+        assert isinstance(_proxies, dict)
+        self._proxies = _proxies
+
+    def __call__(self, builder):
+        if not isinstance(builder, interfaces.Builder):
+            builder = Builder(builder)
+        builder.proxies = self._proxies
+        return builder
+
+
+proxies = ProxiesFactory()
+
+
+class HttpMethodFactory(object):
+    def __init__(self, method):
+        self._method = method
+
+    def __call__(self, path=None):
+        return functools.partial(
+            HttpMethod(self._method, path),
+        )
+
+
+class HttpMethod(object):
+    def __init__(self, method, path=None):
+        self._method = method
+        self._path = path
+
+    def __call__(self, builder):
+        if not isinstance(builder, interfaces.Builder):
+            builder = Builder(builder)
+
+        builder.path = self._path
+        builder.method = self._method
+
+        return builder
+
+
+get = HttpMethodFactory("GET").__call__
+post = HttpMethodFactory("POST").__call__

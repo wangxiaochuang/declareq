@@ -1,5 +1,8 @@
 all:
-	python test.py
+	pytest
 
 server:
 	flask --app debug run
+
+upload:
+	python setup.py sdist upload

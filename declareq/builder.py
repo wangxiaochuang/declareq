@@ -3,11 +3,13 @@ from declareq import interfaces, utils
 from declareq.commands import Builder
 
 
-def noops(*arg, **kwargs):
-    pass
+def noops(*_arg, **_kwargs):
+    '''no ops'''
 
 
 class ConsumerMethod():
+    ''' consumer method '''
+
     def __init__(self, builder: Builder):
         self.builder = builder
 

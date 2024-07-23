@@ -1,52 +1,9 @@
-import functools
+'''commands'''
 import inspect
-from typing import Any
-import requests
 import uritemplate
-from retrying import retry
 
 from declareq import utils, interfaces
-
-
-class NeedRetry(Exception):
-    pass
-
-
-def retry_if_need(e):
-    return isinstance(e, NeedRetry)
-
-
-class Request():
-    def __init__(self, method, url, headers, query, body, ret_funcs, retry_kwargs, timeout):
-        self.method = method
-        self.url = url
-        self.query = query
-        self.session = requests.Session()
-        self.body = body
-        self.headers = headers
-        self.ret_funcs = ret_funcs
-        self.retry_kwargs = retry_kwargs
-        self.timeout = timeout
-
-    def execute(self, consumer):
-        def run():
-            query = {k: v(consumer) if callable(
-                v) else v for k, v in self.query.items()}
-            headers = {k: v(consumer) if callable(
-                v) else v for k, v in self.headers.items()}
-            try:
-                resp = self.session.request(self.method, self.url, params=query, headers=headers, json=self.body, proxies={
-                                            "http": None, "https": None}, timeout=self.timeout / 1000)
-            except requests.exceptions.Timeout as e:
-                return NeedRetry("timeout")
-            res = resp.json()
-            for func in self.ret_funcs:
-                res = func(consumer, res)
-            return res
-
-        run = retry(**self.retry_kwargs)(run)
-
-        return run()
+from declareq import request
 
 
 class Empty():
@@ -95,12 +52,14 @@ class Builder(interfaces.Builder):
         self._returns = []
         # init can be set
         self._retry = {
-            "retry_on_exception": retry_if_need,
+            "retry_on_exception": request.retry_if_need,
             "stop_max_attempt_number": 2,
             "wait_random_min": 1000,
             "wait_random_max": 3000}
         # init can be set
         self._timeout = empty_timeout
+        self._client = None
+        self._proxies = {}
 
     @property
     def spec(self):
@@ -131,6 +90,18 @@ class Builder(interfaces.Builder):
         self._url_prefix = prefix
 
     @property
+    def client(self):
+        return self._client
+
+    @client.setter
+    def client(self, client):
+        if not client:
+            raise ValueError("client cannot be empty")
+        if self._client is not None:
+            raise ValueError("client already set")
+        self._client = client
+
+    @property
     def path(self):
         return self._path
 
@@ -141,6 +112,18 @@ class Builder(interfaces.Builder):
         if self._path is not empty_path:
             raise ValueError("path already set")
         self._path = uritemplate.URITemplate(path)
+
+    @property
+    def proxies(self):
+        return self._proxies
+
+    @proxies.setter
+    def proxies(self, proxies):
+        if not proxies:
+            raise ValueError("proxies cannot be empty")
+        if self._proxies:
+            raise ValueError("proxies already set")
+        self._proxies = proxies
 
     def set_timeout(self, timeout):
         if not timeout:
@@ -185,39 +168,43 @@ class Builder(interfaces.Builder):
     def headers(self):
         return self._headers
 
-    def _merge_url(self, global_builder):
+    def _merge_url(self, init_builder):
         if not is_empty(self._url):
             return self._url
-        if not is_empty(global_builder._url):
-            return global_builder._url
+        if not is_empty(init_builder._url):
+            return init_builder._url
 
         if not is_empty(self._url_prefix):
             prefix = self._url_prefix
-        elif not is_empty(global_builder._url_prefix):
-            prefix = global_builder._url_prefix
+        elif not is_empty(init_builder._url_prefix):
+            prefix = init_builder._url_prefix
         else:
             raise Exception("need url")
 
         if not is_empty(self._path):
             path = self._path
-        elif not is_empty(global_builder._path):
-            path = global_builder._path
+        elif not is_empty(init_builder._path):
+            path = init_builder._path
         else:
             path = uritemplate.URITemplate("/")
-        return prefix + path.expand({**self._path_vars, **global_builder._path_vars})
+        return prefix + path.expand({**self._path_vars, **init_builder._path_vars})
 
-    def _merge_headers(self, global_builder):
-        headers_auth = {**global_builder._headers_auth, **self._headers_auth}
-        return {**global_builder._headers, **self._headers, **headers_auth}
+    def _merge_headers(self, init_builder):
+        headers_auth = {**init_builder._headers_auth, **self._headers_auth}
+        return {**init_builder._headers, **self._headers, **headers_auth}
 
-    def _merge_query(self, global_builder):
-        query_auth = {**global_builder._query_auth, **self._query_auth}
-        return {**global_builder._query, **self._query, **query_auth}
+    def _merge_query(self, init_builder):
+        query_auth = {**init_builder._query_auth, **self._query_auth}
+        return {**init_builder._query, **self._query, **query_auth}
 
     def _merge_return(self, init_builder):
-        def ret_func(_, raw): return raw
+        def ret_func(_, raw):
+            return raw
         if inspect.isclass(self.spec.return_annotation):
-            def ret_func(_, raw): return self.spec.return_annotation(raw)
+            def _ret_func(_, raw):
+                return self.spec.return_annotation(raw)
+            ret_func = _ret_func
+
         return [*init_builder._returns, *self._returns, ret_func]
 
     def _merge_retry(self, init_builder):
@@ -230,16 +217,27 @@ class Builder(interfaces.Builder):
             return init_builder._timeout
         return 5000
 
-    def build(self, init_builder) -> Request:
+    def _merge_client(self, init_builder):
+        return self._client or init_builder._client
+
+    def _merge_proxies(self, init_builder):
+        '''子类的优先'''
+        return {**init_builder._proxies, **self._proxies}
+
+    def build(self, init_builder) -> request.Request:
+        '''实际执行请求的时候会 merge init 的相关配置'''
         url = self._merge_url(init_builder)
         headers = self._merge_headers(init_builder)
         query = self._merge_query(init_builder)
         ret_funcs = self._merge_return(init_builder)
         retry_kwargs = self._merge_retry(init_builder)
         timeout = self._merge_timeout(init_builder)
-        return Request(self.method, url, headers, query, self.body, ret_funcs, retry_kwargs, timeout)
+        client = self._merge_client(init_builder)
+        proxies = self._merge_proxies(init_builder)
+        return request.Request(client, self.method, url, headers, query, self.body, ret_funcs, retry_kwargs, timeout, proxies)
 
     def merge_parent(self, builder) -> interfaces.Builder:
+        '''类初始化的时候，__init__的 merge'''
         # 自己没有才是用父类存在的
         if is_empty(self._url_prefix) and (not is_empty(builder._url_prefix)):
             self._url_prefix = builder._url_prefix
@@ -256,36 +254,9 @@ class Builder(interfaces.Builder):
         self._query_auth = {**builder._query_auth, **self._query_auth}
         self._headers = {**builder._headers, **self._headers}
         self._retry = {**builder._retry, **self._retry}
+        self._client = self._client or builder._client
+        self._proxies = {**builder._proxies, **self._proxies}
         return self
 
     def __repr__(self):
         return f"builder({self.url_prefix})"
-
-
-class HttpMethodFactory(object):
-    def __init__(self, method):
-        self._method = method
-
-    def __call__(self, path=None) -> Any:
-        return functools.partial(
-            HttpMethod(self._method, path),
-        )
-
-
-class HttpMethod(object):
-    def __init__(self, method, path=None):
-        self._method = method
-        self._path = path
-
-    def __call__(self, builder):
-        if not isinstance(builder, interfaces.Builder):
-            builder = Builder(builder)
-
-        builder.path = self._path
-        builder.method = self._method
-
-        return builder
-
-
-get = HttpMethodFactory("GET").__call__
-post = HttpMethodFactory("POST").__call__

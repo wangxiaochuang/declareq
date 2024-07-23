@@ -42,9 +42,6 @@ class BodyMap(interfaces.Argument):
             builder.add_body(k, v)
 
 
-BodyKw = BodyMap
-
-
 class Query(interfaces.Argument):
     def build(self, consumer, builder: Builder, arg_key, arg_val):
         builder.add_query(self.get_key(arg_key), arg_val)
@@ -71,7 +68,8 @@ class QueryAuthToken(interfaces.Argument):
         if call := self.kwargs.get("call"):
             def _arg_val(_):
                 return methodcaller(call)(arg_val)
-        builder.add_query_auth(self.get_key(arg_key), _arg_val)
+            arg_val = _arg_val
+        builder.add_query_auth(self.get_key(arg_key), arg_val)
 
 
 class HeaderAuthToken(interfaces.Argument):
@@ -82,3 +80,8 @@ class HeaderAuthToken(interfaces.Argument):
             def _arg_val(_):
                 return methodcaller(call)(arg_val)
         builder.add_header_auth(self.get_key(arg_key), _arg_val)
+
+
+class Session(interfaces.Argument):
+    def build(self, consumer, builder: Builder, _, arg_val):
+        builder.client = arg_val
