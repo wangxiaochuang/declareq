@@ -80,3 +80,24 @@ def test_returns_extract_exception():
     svc = MockService("mock://mock.org", session, "TOKEN_12345")
     with pytest.raises(ExtractFail, match=r".*none-exists.*"):
         svc.list_repos("declareq")
+
+def test_auth_token_method_call_shoud_work():
+    session = MockSession()
+
+    class Token():
+        def get(self) -> str:
+            return "TOKEN_12345"
+        
+    class MockService(Consumer):
+        '''mock service'''
+
+        def __init__(self, _: UrlPrefix, _c: Session, access_token: QueryAuthToken(call="get")):
+            pass
+
+        @get("/users/{user}/repos")
+        def list_repos(self, user: Path) -> Repo:
+            """List all public repositories for a specific user."""
+
+    svc = MockService("mock://mock.org", session, Token())
+    svc.list_repos("declareq")
+    assert session.kwargs['params']['access_token'] == "TOKEN_12345"

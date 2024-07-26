@@ -65,11 +65,12 @@ class QueryAuthToken(interfaces.Argument):
     '''set query auth token'''
 
     def build(self, consumer, builder: Builder, arg_key, arg_val):
+        proxy_val = arg_val
         if call := self.kwargs.get("call"):
             def _arg_val(_):
                 return methodcaller(call)(arg_val)
-            arg_val = _arg_val
-        builder.add_query_auth(self.get_key(arg_key), arg_val)
+            proxy_val = _arg_val
+        builder.add_query_auth(self.get_key(arg_key), proxy_val)
 
 
 class HeaderAuthToken(interfaces.Argument):
