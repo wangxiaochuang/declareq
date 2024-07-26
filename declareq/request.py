@@ -47,6 +47,8 @@ class Request():
             res = resp.json() if _is_application_json(resp) else resp.text
             for func in self.ret_funcs:
                 res = func(consumer, res)
+                if res is None:
+                    break
             return res
 
         run = retry(**self.retry_kwargs)(run)

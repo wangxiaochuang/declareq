@@ -38,6 +38,17 @@ class Repo():
     def name(self):
         return self.raw["name"]
 
+class NewRepo():
+    def __init__(self, consumer, raw):
+        self.raw = raw
+
+    @property
+    def name(self):
+        return self.raw["name"]
+
+def get_Repo(consumer, raw):
+    return NewRepo(consumer, raw)
+
 
 def test_base():
     session = MockSession()
@@ -74,7 +85,7 @@ def test_returns_extract_exception():
 
         @returns.get_in("none-exists")
         @get("/users/{user}/repos")
-        def list_repos(self, user: Path) -> Repo:
+        def list_repos(self, user: Path) -> get_Repo:
             """List all public repositories for a specific user."""
 
     svc = MockService("mock://mock.org", session, "TOKEN_12345")

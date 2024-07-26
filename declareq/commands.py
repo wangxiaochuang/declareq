@@ -200,9 +200,14 @@ class Builder(interfaces.Builder):
     def _merge_return(self, init_builder):
         def ret_func(_, raw):
             return raw
-        if inspect.isclass(self.spec.return_annotation):
-            def _ret_func(_, raw):
-                return self.spec.return_annotation(raw)
+        # 返回值可调用说明是类或者函数
+        if callable(self.spec.return_annotation):
+            def _ret_func(consumer, raw):
+                # 如果是类，就接受返回数据
+                if inspect.isclass(self.spec.return_annotation):
+                    return self.spec.return_annotation(raw)
+                # 如果是函数，接受consumer和返回数据
+                return self.spec.return_annotation(consumer, raw)
             ret_func = _ret_func
 
         return [*init_builder._returns, *self._returns, ret_func]

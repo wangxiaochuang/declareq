@@ -1,5 +1,5 @@
 all:
-	pytest
+	pytest -l
 
 server:
 	flask --app debug run
