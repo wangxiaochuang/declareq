@@ -3,7 +3,7 @@
 
 # Note: To use the 'upload' functionality of this file, you must:
 #   $ pipenv install twine --dev
-#   $ pip install wheel
+#   $ python3 -m pip install wheel twine
 
 import io
 import os
