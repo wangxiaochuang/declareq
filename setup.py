@@ -19,11 +19,11 @@ URL = 'https://github.com/wangxiaochuang/declareq'
 EMAIL = 'jackstrawxiaoxin@gmail.com'
 AUTHOR = 'wangxiaochuang'
 REQUIRES_PYTHON = '>=3.6.0'
-VERSION = '0.1.8'
+VERSION = '0.1.9'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    'requests', 'retrying', 'uritemplate', 'toolz'
+    'requests', 'retrying', 'uritemplate', 'toolz', 'foxmock'
 ]
 
 # What packages are optional?

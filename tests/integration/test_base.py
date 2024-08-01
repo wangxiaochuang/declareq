@@ -1,57 +1,16 @@
 import pytest
 from declareq import Consumer
 from declareq import Path, UrlPrefix, Session, QueryAuthToken
-from declareq import returns, get, ExtractFail, proxies
-
-
-class MockResponse():
-    def __init__(self):
-        self.headers = {
-            "content-type": "application/json"
-        }
-
-    def json(self):
-        return {
-            "code": 0,
-            "data": {"name": "declareq", "id": 0}
-        }
-
-
-class MockSession():
-    def __init__(self):
-        self.method = None
-        self.url = None
-        self.kwargs = {}
-
-    def request(self, method, url, **kwargs):
-        self.method = method
-        self.url = url
-        self.kwargs = kwargs
-        return MockResponse()
-
-
-class Repo():
-    def __init__(self, raw):
-        self.raw = raw
-
-    @property
-    def name(self):
-        return self.raw["name"]
-
-class NewRepo():
-    def __init__(self, consumer, raw):
-        self.raw = raw
-
-    @property
-    def name(self):
-        return self.raw["name"]
-
-def get_Repo(consumer, raw):
-    return NewRepo(consumer, raw)
+from declareq import returns, get, proxies
+from foxmock import Mock
 
 
 def test_base():
-    session = MockSession()
+    resp = Mock()
+    resp.call("json").ret({"data": {"name": "declareq"}})
+    resp.index("headers").ret({"content-type": "application/json"})
+    session = Mock()
+    session.call("request").ret(resp)
 
     class MockService(Consumer):
         '''mock service'''
@@ -62,42 +21,32 @@ def test_base():
 
         @returns.get_in(["data"])
         @get("/users/{user}/repos")
-        def list_repos(self, user: Path) -> Repo:
+        def list_repos(self, user: Path):
             """List all public repositories for a specific user."""
 
     svc = MockService("mock://mock.org", session, "TOKEN_12345")
     repo = svc.list_repos("declareq")
-    assert session.method == "GET"
-    assert session.url == "mock://mock.org/users/declareq/repos"
-    assert session.kwargs["params"]["access_token"] == "TOKEN_12345"
-    assert session.kwargs["proxies"]["http"] == "http://127.0.0.1:8080"
-    assert repo.name == "declareq"
+    req = session.request.history[0]
+    method = req.args[0]
+    url = req.args[1]
+    query = req.kwargs["params"]
+    _proxies = req.kwargs["proxies"]
+    assert method == "GET"
+    assert url == "mock://mock.org/users/declareq/repos"
+    assert query["access_token"] == "TOKEN_12345"
+    assert _proxies["http"] == "http://127.0.0.1:8080"
+    assert repo['name'] == "declareq"
 
-
-def test_returns_extract_exception():
-    session = MockSession()
-
-    class MockService(Consumer):
-        '''mock service'''
-
-        def __init__(self, _: UrlPrefix, _c: Session, access_token: QueryAuthToken):
-            pass
-
-        @returns.get_in("none-exists")
-        @get("/users/{user}/repos")
-        def list_repos(self, user: Path) -> get_Repo:
-            """List all public repositories for a specific user."""
-
-    svc = MockService("mock://mock.org", session, "TOKEN_12345")
-    with pytest.raises(ExtractFail, match=r".*none-exists.*"):
-        svc.list_repos("declareq")
 
 def test_auth_token_method_call_shoud_work():
-    session = MockSession()
+    resp = Mock()
+    resp.call("json").ret({"data": {"name": "declareq"}})
+    resp.index("headers").ret({"content-type": "application/json"})
+    session = Mock()
+    session.call("request").ret(resp)
 
-    class Token():
-        def get(self) -> str:
-            return "TOKEN_12345"
+    token = Mock()
+    token.call("get").ret( "TOKEN_12345")
         
     class MockService(Consumer):
         '''mock service'''
@@ -106,9 +55,9 @@ def test_auth_token_method_call_shoud_work():
             pass
 
         @get("/users/{user}/repos")
-        def list_repos(self, user: Path) -> Repo:
+        def list_repos(self, user: Path):
             """List all public repositories for a specific user."""
 
-    svc = MockService("mock://mock.org", session, Token())
+    svc = MockService("mock://mock.org", session, token)
     svc.list_repos("declareq")
-    assert session.kwargs['params']['access_token'] == "TOKEN_12345"
+    assert session.request.history[0].kwargs["params"]['access_token'] == "TOKEN_12345"

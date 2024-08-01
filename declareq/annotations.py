@@ -33,7 +33,7 @@ headers = HeadersFactory().__call__
 
 
 class ReturnsFactory(object):
-    def get_in(self, keys: str | List = [], default=None, raise_exception=True):
+    def get_in(self, keys: str | List = [], default=None, raise_exception=True, ex=None):
         if isinstance(keys, str):
             keys = [keys]
         assert len(keys) > 0
@@ -43,6 +43,8 @@ class ReturnsFactory(object):
                 return toolz.get_in(keys, raw, no_default=True)
             except KeyError as e:
                 if raise_exception:
+                    if ex is not None:
+                        raise ex(raw) from e
                     raise ExtractFail(f"extract {keys} fail") from e
                 return default
         return functools.partial(
