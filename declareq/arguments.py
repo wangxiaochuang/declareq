@@ -61,6 +61,18 @@ class UrlPrefix(interfaces.Argument):
         builder.url_prefix = arg_val
 
 
+class BodyAuthToken(interfaces.Argument):
+    '''set query auth token'''
+
+    def build(self, consumer, builder: Builder, arg_key, arg_val):
+        proxy_val = arg_val
+        if call := self.kwargs.get("call"):
+            def _arg_val(_):
+                return methodcaller(call)(arg_val)
+            proxy_val = _arg_val
+        builder.add_body_auth(self.get_key(arg_key), proxy_val)
+
+
 class QueryAuthToken(interfaces.Argument):
     '''set query auth token'''
 

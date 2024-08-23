@@ -61,6 +61,7 @@ __all__ = [
     "HeaderAuthToken",
     "HeaderKw",
     "Body",
+    "BodyAuthToken",
     "BodyMap",
     "BodyKw"
 ]

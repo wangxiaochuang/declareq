@@ -41,6 +41,8 @@ class Builder(interfaces.Builder):
         # init can be set
         self._body = {}
         # init can be set
+        self._body_auth = {}
+        # init can be set
         self._query = {}
         # init can be set
         self._query_auth = {}
@@ -138,6 +140,9 @@ class Builder(interfaces.Builder):
     def add_body(self, key, val):
         self._body[key] = val
 
+    def add_body_auth(self, key, val):
+        self._body_auth[key] = val
+
     def add_query(self, key, val):
         self._query[key] = val
 
@@ -197,6 +202,10 @@ class Builder(interfaces.Builder):
         query_auth = {**init_builder._query_auth, **self._query_auth}
         return {**init_builder._query, **self._query, **query_auth}
 
+    def _merge_body(self, init_builder):
+        body_auth = {**init_builder._body_auth, **self._body_auth}
+        return {**init_builder._body, **self._body, **body_auth}
+
     def _merge_return(self, init_builder):
         def ret_func(_, raw):
             return raw
@@ -234,12 +243,13 @@ class Builder(interfaces.Builder):
         url = self._merge_url(init_builder)
         headers = self._merge_headers(init_builder)
         query = self._merge_query(init_builder)
+        body = self._merge_body(init_builder)
         ret_funcs = self._merge_return(init_builder)
         retry_kwargs = self._merge_retry(init_builder)
         timeout = self._merge_timeout(init_builder)
         client = self._merge_client(init_builder)
         proxies = self._merge_proxies(init_builder)
-        return request.Request(client, self.method, url, headers, query, self.body, ret_funcs, retry_kwargs, timeout, proxies)
+        return request.Request(client, self.method, url, headers, query, body, ret_funcs, retry_kwargs, timeout, proxies)
 
     def merge_parent(self, builder) -> interfaces.Builder:
         '''类初始化的时候，__init__的 merge'''
@@ -264,4 +274,4 @@ class Builder(interfaces.Builder):
         return self
 
     def __repr__(self):
-        return f"builder({self.url_prefix})"
+        return f"builder({self._func.__qualname__})"

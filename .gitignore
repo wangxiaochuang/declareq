@@ -5,3 +5,4 @@ declareq.egg-info/
 build/
 dist/
 .venv/
+test_dev.py

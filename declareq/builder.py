@@ -1,3 +1,4 @@
+import functools
 import inspect
 from declareq import interfaces, utils
 from declareq.commands import Builder
@@ -35,7 +36,9 @@ class ConsumerMeta(type):
         if not isinstance(builder, interfaces.Builder):
             builder = Builder(builder)
 
+        @functools.wraps(builder._func)
         def wrap(consumer, *args, **kwargs):
+            # 运行过程注入
             ConsumerMethod(builder).fill_args(consumer, *args, **kwargs)
             builder._func(consumer, *args, **kwargs)
             cls = type(consumer).__bases__[0]
@@ -51,6 +54,7 @@ class ConsumerMeta(type):
         if isinstance(value, interfaces.Builder):
             builder = value
 
+            @functools.wraps(builder._func)
             def wrap(consumer, *args, **kwargs):
                 return ConsumerMethod(builder)(consumer, *args, **kwargs)
             wrapped_value = wrap
